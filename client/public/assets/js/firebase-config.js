@@ -1,12 +1,13 @@
-// إعدادات Firebase — مشروع kuwait-b7d4b (موحّد للموقع ولوحة التحكم)
+// إعدادات Firebase — مشروع kuwait-jaho (موحّد للموقع ولوحة التحكم)
 const firebaseConfig = {
-  apiKey: "AIzaSyAfWfzLyUlsq3NFsU2JK-qcIZkXgN023U0",
-  authDomain: "kuwait-b7d4b.firebaseapp.com",
-  databaseURL: "https://kuwait-b7d4b-default-rtdb.firebaseio.com",
-  projectId: "kuwait-b7d4b",
-  storageBucket: "kuwait-b7d4b.firebasestorage.app",
-  messagingSenderId: "686238776602",
-  appId: "1:686238776602:web:dfb65a9525b3b86cd740a3"
+  apiKey: "AIzaSyDk7k4dUnZkeHZXgSQ6jTM8Ij--9FEL1EE",
+  authDomain: "kuwait-jaho.firebaseapp.com",
+  databaseURL: "https://kuwait-jaho-default-rtdb.firebaseio.com/",
+  projectId: "kuwait-jaho",
+  storageBucket: "kuwait-jaho.firebasestorage.app",
+  messagingSenderId: "551882030134",
+  appId: "1:551882030134:web:8afd5b68edefb5a258ac97",
+  measurementId: "G-WXB5DKGCS3"
 };
 
 if (!firebase.apps.length) {
