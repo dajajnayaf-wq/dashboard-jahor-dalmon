@@ -79,22 +79,8 @@ function vitePluginManusDebugCollector(): Plugin {
     name: "manus-debug-collector",
 
     transformIndexHtml(html) {
-      if (process.env.NODE_ENV === "production") {
-        return html;
-      }
-      return {
-        html,
-        tags: [
-          {
-            tag: "script",
-            attrs: {
-              src: "/__manus__/debug-collector.js",
-              defer: true,
-            },
-            injectTo: "head",
-          },
-        ],
-      };
+      // سكربت التصحيح خاص ببيئة Manus وغير موجود هنا — لا نحقنه لتجنب خطأ 404
+      return html;
     },
 
     configureServer(server: ViteDevServer) {

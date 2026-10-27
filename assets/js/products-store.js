@@ -22,18 +22,16 @@
     return !!(window.db && typeof window.db.collection === 'function');
   }
 
-  /** جلب المنتجات: Firestore أولاً، ثم المحلي عند الفشل */
+  /** جلب المنتجات: Firestore هو المصدر الوحيد عند نجاح الاستعلام */
   window.storeGetProducts = async function () {
     if (firestoreAvailable()) {
       try {
         const snap = await window.db.collection('products').orderBy('order', 'asc').get();
-        if (!snap.empty) {
-          const items = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
-          writeLocal(items); // مزامنة النسخة المحلية
-          return items;
-        }
+        const items = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+        writeLocal(items); // مزامنة النسخة المحلية (حتى لو فارغة)
+        return items;
       } catch (e) {
-        console.warn('Firestore products read failed, using local:', e);
+        console.warn('Firestore products read failed, using local cache:', e);
       }
     }
     return readLocal();
@@ -79,11 +77,9 @@
     try {
       return window.db.collection('products').orderBy('order', 'asc')
         .onSnapshot((snap) => {
-          if (!snap.empty) {
-            const items = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
-            writeLocal(items);
-            onChange(items);
-          }
+          const items = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+          writeLocal(items);
+          onChange(items);
         }, (err) => console.warn('products watch error:', err));
     } catch (e) {
       return function () {};

@@ -1,4 +1,5 @@
-// إعدادات Firebase — مشروع kuwait-jaho (موحّد للموقع ولوحة التحكم)
+// إعدادات Firebase — المشروع المعتمد: kuwait-jaho
+// (موحّد للموقع ولوحة التحكم — لا تُستخدم أي مفاتيح من مشاريع أخرى)
 const firebaseConfig = {
   apiKey: "AIzaSyDk7k4dUnZkeHZXgSQ6jTM8Ij--9FEL1EE",
   authDomain: "kuwait-jaho.firebaseapp.com",

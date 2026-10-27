@@ -1,30 +1,56 @@
 // products.js — إدارة المنتجات داخل لوحة التحكم
 (function () {
-  const defaultProducts = [
-    { name: 'عرض التين الأخضر الفاخر', desc: 'بوكس 5 كيلو تين أخضر فاخر.', price: '3.500', img: '/assets/images/teen-3.jpg' },
-    { name: 'عرض كل الكويت الجديد', desc: '10 كيلو روبيان عماني جامبو طازج.', price: '5.000', img: '/assets/images/kuwaiti-jumbo-robian-10kg-new.jpg' },
-    { name: 'عرض تمر الصقعي الملكي', desc: 'بوكس 5 كيلو تمر صقعي ملكي فاخر.', price: '3.960', img: '/assets/images/sakey-5.jpg' },
-    { name: 'عرض تمر الخلاص المكبوس', desc: 'بوكس 8 كيلو تمر الخلاص المكبوس درجة أولى.', price: '3.960', img: '/assets/images/khals-8.jpg' },
-    { name: 'عرض 50 عصفور التين', desc: 'بوكس 50 عصفور تين درجة أولى حجم كبير.', price: '7.000', img: '/assets/images/teen-50.jpg' },
-    { name: 'عرض 5 بطات فرنسي', desc: 'بوكس 5 بطات فرنسي عمر 4 - 5 شهور.', price: '10.000', img: '/assets/images/batt-5.jpg' },
-    { name: 'عرض 10 بطات فرنسي', desc: 'بوكس 10 بطات فرنسي عمر 4 - 5 شهور.', price: '20.000', img: '/assets/images/batt-10.jpg' },
-    { name: 'بطة فرنسي', desc: 'بطة فرنسي عمر 4 - 5 شهور.', price: '4.000', img: '/assets/images/batt-1.jpg' },
-    { name: 'بوكس 5 حمامات', desc: 'بوكس 5 حمامات - طازج وزن 750 جرام.', price: '4.000', img: '/assets/images/hamam-10.jpg' },
-    { name: 'بوكس 10 حمامات', desc: 'بوكس 10 حمامات - طازج وزن 750 جرام.', price: '8.000', img: '/assets/images/hamam-10.jpg' },
-    { name: 'بوكس 20 حمامة', desc: 'بوكس 20 حمامات - طازج وزن 750 جرام.', price: '12.000', img: '/assets/images/hamam-20.jpg' },
-    { name: 'بوكس 10 حمامات زاجل', desc: 'بوكس 10 حمامات زاجل - طازج وزن 850 جرام.', price: '8.000', img: '/assets/images/zagel-10.jpg' },
-    { name: 'البوكس الصغير - سمك البلطي', desc: 'بوكس سمك بلطي طازج 5 كيلو.', price: '12.000', img: '/assets/images/bolti-5.jpg' },
-    { name: 'البوكس الكبير - سمك البلطي', desc: 'بوكس سمك بلطي طازج 10 كيلو.', price: '20.000', img: '/assets/images/bolti-10.jpg' },
-    { name: 'بوكس 10 دجاج عربي ساسو', desc: 'بوكس 10 دجاجات عربي ساسو - طازج وزن 1000 - 1300 جرام.', price: '20.000', img: '/assets/images/saso-8.jpg' }
-  ];
-
   let productsCache = [];
   let editingProductIndex = null;
 
   function $(id) { return document.getElementById(id); }
 
+  // حد Firestore الأقصى لكل حقل هو 1,048,487 بايت — نبقى تحته بهامش آمن
+  const MAX_IMG_BYTES = 900000;
+
   function getProducts() {
-    return productsCache.length ? productsCache : (JSON.parse(localStorage.getItem('allProducts')) || defaultProducts);
+    return productsCache;
+  }
+
+  function loadImage(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('تعذر قراءة الصورة'));
+      img.src = url;
+    });
+  }
+
+  function drawToDataURL(img, maxDim, quality) {
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * scale));
+    const h = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', quality);
+  }
+
+  // تصغير/ضغط الصورة قبل التخزين حتى لا تتجاوز حد Firestore
+  async function compressImage(file) {
+    const url = URL.createObjectURL(file);
+    let img;
+    try {
+      img = await loadImage(url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+    const dims = [1200, 1000, 800, 600, 400];
+    const quals = [0.85, 0.75, 0.65, 0.55];
+    let data = '';
+    for (const d of dims) {
+      for (const q of quals) {
+        data = drawToDataURL(img, d, q);
+        if (data.length <= MAX_IMG_BYTES) return data;
+      }
+    }
+    return data;
   }
 
   async function persistProducts(products) {
@@ -32,9 +58,10 @@
     if (typeof window.storeSaveProducts === 'function') {
       const ok = await window.storeSaveProducts(products);
       if (!ok) localStorage.setItem('allProducts', JSON.stringify(products));
-    } else {
-      localStorage.setItem('allProducts', JSON.stringify(products));
+      return ok;
     }
+    localStorage.setItem('allProducts', JSON.stringify(products));
+    return false;
   }
 
   function showSuccess(msg) {
@@ -117,13 +144,14 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function deleteProduct(index) {
+  async function deleteProduct(index) {
     const products = getProducts();
     const product = products[index];
     if (confirm(`هل تريد حذف "${product.name}"؟`)) {
       products.splice(index, 1);
-      persistProducts(products);
-      showSuccess('تم حذف المنتج بنجاح');
+      const ok = await persistProducts(products);
+      if (!ok) { showError('تم الحذف محليًا فقط — فشل الحفظ في قاعدة البيانات'); }
+      else { showSuccess('تم حذف المنتج بنجاح'); }
       displayProducts();
     }
   }
@@ -133,12 +161,13 @@
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= products.length) return;
     [products[index], products[targetIndex]] = [products[targetIndex], products[index]];
-    await persistProducts(products);
+    const ok = await persistProducts(products);
     displayProducts();
-    showSuccess('تم حفظ ترتيب المنتجات');
+    if (!ok) { showError('تم الترتيب محليًا فقط — فشل الحفظ في قاعدة البيانات'); }
+    else { showSuccess('تم حفظ ترتيب المنتجات'); }
   }
 
-  function saveProduct(event) {
+  async function saveProduct(event) {
     event.preventDefault();
     const name = $('product-name').value.trim();
     const desc = $('product-desc').value.trim();
@@ -153,10 +182,11 @@
       const newProduct = { name, desc, price, img: products[editingProductIndex].img };
       if (products[editingProductIndex]._id) newProduct._id = products[editingProductIndex]._id;
       products[editingProductIndex] = newProduct;
-      persistProducts(products);
-      showSuccess('تم تحديث المنتج بنجاح');
+      const ok = await persistProducts(products);
       resetForm();
       displayProducts();
+      if (!ok) { showError('تم التعديل محليًا فقط — فشل الحفظ في قاعدة البيانات'); }
+      else { showSuccess('تم تحديث المنتج بنجاح'); }
       return;
     }
 
@@ -165,24 +195,33 @@
       return;
     }
 
-    const file = fileInput.files[0];
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      const newProduct = { name, desc, price, img: e.target.result };
-      const products = getProducts();
-      if (editingProductIndex !== null) {
-        if (products[editingProductIndex]._id) newProduct._id = products[editingProductIndex]._id;
-        products[editingProductIndex] = newProduct;
-        showSuccess('تم تحديث المنتج بنجاح');
-      } else {
-        products.unshift(newProduct);
-        showSuccess('تم إضافة المنتج بنجاح');
-      }
-      persistProducts(products);
-      resetForm();
-      displayProducts();
-    };
-    reader.readAsDataURL(file);
+    let imgData;
+    try {
+      imgData = await compressImage(fileInput.files[0]);
+    } catch (err) {
+      showError('تعذر معالجة الصورة، جرّب صورة أخرى');
+      return;
+    }
+
+    const newProduct = { name, desc, price, img: imgData };
+    const products = getProducts();
+    const wasEditing = editingProductIndex !== null;
+    if (wasEditing) {
+      if (products[editingProductIndex]._id) newProduct._id = products[editingProductIndex]._id;
+      products[editingProductIndex] = newProduct;
+    } else {
+      products.unshift(newProduct);
+    }
+    const ok = await persistProducts(products);
+    resetForm();
+    displayProducts();
+    if (!ok) {
+      showError('تم الحفظ محليًا فقط — فشل الحفظ في قاعدة البيانات');
+    } else if (wasEditing) {
+      showSuccess('تم تحديث المنتج بنجاح');
+    } else {
+      showSuccess('تم إضافة المنتج بنجاح');
+    }
   }
 
   // ── التهيئة ──────────────────────────────────────────────
@@ -203,25 +242,16 @@
     $('product-form').addEventListener('submit', saveProduct);
     $('product-cancel').addEventListener('click', resetForm);
 
-    // تحميل المنتجات من Firestore مع احتياطي محلي
+    // تحميل المنتجات من Firestore (المصدر الوحيد) — لا زرع لمنتجات قديمة
     (async function () {
-      const stored = JSON.parse(localStorage.getItem('allProducts')) || [];
-      if (stored.length === 0) localStorage.setItem('allProducts', JSON.stringify(defaultProducts));
       if (typeof window.storeGetProducts === 'function') {
-        productsCache = await window.storeGetProducts();
-        if (!productsCache || productsCache.length === 0) {
-          productsCache = JSON.parse(localStorage.getItem('allProducts')) || defaultProducts;
-        }
+        productsCache = (await window.storeGetProducts()) || [];
       }
       displayProducts();
       if (typeof window.storeWatchProducts === 'function') {
         window.storeWatchProducts(function (items) {
-          productsCache = items;
-          if ($('products-view') && !$('products-view').classList.contains('hidden')) {
-            displayProducts();
-          } else {
-            displayProducts();
-          }
+          productsCache = items || [];
+          displayProducts();
         });
       }
     })();
